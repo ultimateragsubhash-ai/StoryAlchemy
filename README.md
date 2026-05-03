@@ -85,6 +85,62 @@ streamlit run streamlit_app/app.py
 http://localhost:8501
 ```
 
+## 🚀 Production Deployment
+
+Deploy to production using **Railway** (backend) + **Streamlit Cloud** (frontend):
+
+### Quick Deploy
+
+```bash
+# 1. See full deployment guide
+cat DEPLOYMENT.md
+
+# 2. Setup production services:
+# - Railway: https://railway.app
+# - Streamlit Cloud: https://share.streamlit.io
+# - MongoDB Atlas: https://cloud.mongodb.com
+# - Redis Cloud: https://redis.io/cloud/
+# - Qdrant Cloud: https://cloud.qdrant.io
+```
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Streamlit Cloud (Frontend)                              │
+│  ├─ Free tier                                            │
+│  └─ URL: https://your-app.streamlit.app                 │
+└──────────────────────────┬──────────────────────────────┘
+                           │ HTTPS
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│  Railway (Backend)                                       │
+│  ├─ FastAPI server                                       │
+│  ├─ $5/mo credit (free tier)                             │
+│  └─ URL: https://your-app.up.railway.app                │
+└──────────┬───────────────┬───────────────┬───────────────┘
+           │               │               ▼
+    ┌─────────────┐  ┌────────────┐  ┌────────────┐
+    │ MongoDB Atlas│  │ Redis Cloud│  │ Qdrant Cloud│
+    │ (512MB free) │  │ (30MB free)│  │ (1GB free)  │
+    └─────────────┘  └────────────┘  └────────────┘
+```
+
+### Cost Estimation (Production)
+
+| Component | Free Tier | Paid Option |
+|-----------|-----------|-------------|
+| Railway Backend | $5/mo credit | $5+/mo |
+| Streamlit Cloud | Free | $0 (public) |
+| MongoDB Atlas | 512MB storage | $9/mo (2GB) |
+| Redis Cloud | 30MB RAM | $7/mo (100MB) |
+| Qdrant Cloud | 1GB storage | $0 (1GB free) |
+| LLM API (MeshAPI) | Pay per use | ~$0.005/story |
+
+**For 100 stories/month: ~$0.50 total cost**
+
+📖 **See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions**
+
 ## 🔧 Environment Variables
 
 ```bash
@@ -205,9 +261,13 @@ StoryAlchemy/
 │   └── pages/                    # Additional pages
 │       ├── 2_📖_History.py       # Story history
 │       └── 3_📚_KnowledgeBase.py # Pattern upload
-├── docker-compose.yml            # MongoDB + Redis + Qdrant
+├── docker-compose.yml            # MongoDB + Redis + Qdrant (local dev)
+├── railway.json                  # Railway deployment config
+├── Procfile                      # Railway process config
+├── .env.railway                  # Railway env template
+├── DEPLOYMENT.md                 # Production deployment guide
 ├── requirements.txt              # Dependencies
-└── README.md                       # This file
+└── README.md                     # This file
 ```
 
 ## 🎭 Two-Button UI

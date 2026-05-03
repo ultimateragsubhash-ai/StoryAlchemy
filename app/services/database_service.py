@@ -61,21 +61,28 @@ class DatabaseService:
         limit: int = 20,
         genre: Optional[str] = None,
         tone: Optional[str] = None,
+        include_errors: bool = False,
     ) -> List[Dict[str, Any]]:
         """Get recent stories with optional filters."""
         
-        query = {
+        query = {}
+        
+        if not include_errors:
             # Filter out error stories
-            "generated_story": {"$exists": True, "$ne": ""},
-            "story_title": {"$exists": True, "$not": {"$regex": "Error:"}},
-        }
+            query["generated_story"] = {"$exists": True, "$ne": ""}
+            query["story_title"] = {"$not": {"$regex": "^Error:"}}
+        
         if genre:
             query["preferences.genre"] = genre
         if tone:
             query["preferences.tone"] = tone
         
+        logger.info(f"Querying stories with filter: {query}")
+        
         cursor = self.db.stories.find(query).sort("created_at", -1).limit(limit)
         stories = await cursor.to_list(length=limit)
+        
+        logger.info(f"Found {len(stories)} stories")
         
         # Convert ObjectId to string for JSON serialization
         for story in stories:

@@ -306,7 +306,7 @@ st.markdown('<p class="app-subtitle">Transform your ideas into compelling storie
 # Story Input
 st.markdown("<div class='section-label'>Your Story Idea</div>", unsafe_allow_html=True)
 idea = st.text_area(
-    "",
+    "story_idea",
     placeholder="A lonely astronaut discovers a mysterious plant on Mars...",
     height=100,
     label_visibility="collapsed",
