@@ -22,17 +22,17 @@ AI-powered narrative generation platform that transforms vague story ideas into 
 ┌─────────────────────────────────────────────────────────────────┐
 │  Streamlit Frontend (2-button UI)                               │
 │  ├─ ✨ Generate Story (with preferences preview)               │
-│  └─ 🎭 Compare Random Tones (3 random variations)            │
+│  └─ 🎭 Compare Random Tones (3 random variations)              │
 └──────────────────────────┬────────────────────────────────────┘
                            │ HTTPS API
                            ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  FastAPI Backend                                                │
-│  ├─ Agent 1: Theme Extractor (GPT-4o-mini) - $0.002            │
-│  ├─ Agent 2: Pattern Retriever (BM25 + Vector) - FREE           │
-│  ├─ Agent 3: Narrative Generator (GPT-4o-mini) - $0.003         │
-│  ├─ Agent 4: Quality Critic (GPT-4o-mini) - $0.002             │
-│  └─ Agent 5: Memory Manager (MongoDB + Redis) - FREE            │
+│  ├─ Agent 1: Theme Extractor (GPT-4o-mini)                      │
+│  ├─ Agent 2: Pattern Retriever (BM25 + Vector)                  │
+│  ├─ Agent 3: Narrative Generator (GPT-4o-mini)                  │
+│  ├─ Agent 4: Quality Critic (GPT-4o-mini)                       │
+│  └─ Agent 5: Memory Manager (MongoDB + Redis)                   │
 └──────────┬───────────────┬───────────────┬────────────────────┘
            │               │               ▼
            ▼               ▼         ┌─────────┐
@@ -111,7 +111,7 @@ DEFAULT_GENERATION_MODEL=openai/gpt-4o-mini
 CHEAP_MODEL=openai/gpt-4o-mini
 ```
 
-## 📊 Cost Breakdown
+## 📊 Minimum Cost Breakdown (When using openai/gpt-4o-mini)
 
 | Component | Cost | Time |
 |-----------|------|------|
