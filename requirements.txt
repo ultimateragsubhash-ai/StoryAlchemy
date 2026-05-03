@@ -1,0 +1,40 @@
+# Core Backend
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+pydantic-settings>=2.3.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.6
+
+# Text Processing (simplified for MVP)
+tiktoken>=0.5.0
+
+# Embeddings & Models (LOCAL - FREE)
+sentence-transformers>=2.3.0
+torch>=2.3.0
+numpy>=1.24.0
+rank-bm25>=0.2.0
+
+# Vector Search
+qdrant-client>=1.7.0
+
+# Databases
+motor>=3.3.0
+pymongo>=4.6.0
+redis>=5.0.0
+
+# HTTP Client
+httpx>=0.26.0
+aiofiles>=23.2.0
+
+# LLM API (OpenAI SDK for MeshAPI compatibility)
+openai>=1.12.0
+
+# Frontend
+streamlit>=1.30.0
+pandas>=2.0.0
+plotly>=5.0.0
+requests>=2.32.0
+
+# Utilities
+python-jose[cryptography]>=3.3.0
