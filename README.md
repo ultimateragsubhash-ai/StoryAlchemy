@@ -7,8 +7,8 @@ AI-powered narrative generation platform that transforms vague story ideas into 
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-red.svg)
 
 **Public URL's:**
-Front end: https://storyalchemy.streamlit.app/
-API: https://storyalchemy-production.up.railway.app/docs
+- Front end: https://storyalchemy.streamlit.app/
+- API: https://storyalchemy-production.up.railway.app/docs
 
 ## 🎯 Key Features
 
