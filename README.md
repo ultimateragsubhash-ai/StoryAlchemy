@@ -6,6 +6,10 @@ AI-powered narrative generation platform that transforms vague story ideas into 
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.109+-green.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.30+-red.svg)
 
+**Public URL's:**
+Front end: https://storyalchemy.streamlit.app/
+API: https://storyalchemy-production.up.railway.app/docs
+
 ## 🎯 Key Features
 
 - **5-Agent Pipeline**: Theme extraction → Pattern retrieval → Story generation → Quality evaluation → Memory management
