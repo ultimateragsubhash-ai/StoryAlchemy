@@ -31,38 +31,51 @@ class MemoryManagerAgent:
         
         logger.info("Agent 5: Saving story to memory")
         
+        story_id = None
+        mongo_success = False
+        cache_success = False
+        
+        # 1. Save to MongoDB (permanent)
         try:
-            # 1. Save to MongoDB (permanent)
             story_id = await database_service.save_story(story_data)
-            
-            # 2. Cache in Redis (for quick retrieval)
-            cache_key_data = {
-                "idea": story_data.get("idea", ""),
-                "preferences": story_data.get("preferences", {}),
-            }
-            
-            cache_data = {
-                "story_id": story_id,
-                "story": story_data.get("generated_story", ""),
-                "title": story_data.get("story_title"),
-                "quality_score": story_data.get("quality_metrics", {}).get("overall_quality", 0),
-                "themes": story_data.get("extracted_themes", {}),
-                "model_used": story_data.get("model_used", ""),
-            }
-            
-            cache_service.set(
-                cache_key_data["idea"],
-                cache_key_data["preferences"],
-                cache_data,
-            )
-            
-            logger.info(f"Agent 5: Story saved with ID: {story_id}")
-            return story_id
-            
+            mongo_success = True
+            logger.info(f"Agent 5: Story saved to MongoDB with ID: {story_id}")
         except Exception as e:
-            logger.error(f"Agent 5 error: {e}")
-            # Return placeholder ID on error
-            return "error-saving-story"
+            logger.error(f"Agent 5: Failed to save to MongoDB: {e}")
+            story_id = "db-error"
+        
+        # 2. Cache in Redis (for quick retrieval) - only if MongoDB save succeeded
+        if mongo_success:
+            try:
+                cache_key_data = {
+                    "idea": story_data.get("idea", ""),
+                    "preferences": story_data.get("preferences", {}),
+                }
+                
+                cache_data = {
+                    "story_id": story_id,
+                    "story": story_data.get("generated_story", ""),
+                    "title": story_data.get("story_title"),
+                    "quality_score": story_data.get("quality_metrics", {}).get("overall_quality", 0),
+                    "themes": story_data.get("extracted_themes", {}),
+                    "model_used": story_data.get("model_used", ""),
+                }
+                
+                cache_service.set(
+                    cache_key_data["idea"],
+                    cache_key_data["preferences"],
+                    cache_data,
+                )
+                cache_success = True
+                logger.info(f"Agent 5: Story cached in Redis")
+            except Exception as e:
+                logger.warning(f"Agent 5: Failed to cache in Redis (non-critical): {e}")
+        
+        if not mongo_success:
+            logger.error("Agent 5: CRITICAL - Story was generated but NOT saved to database!")
+            logger.error("Agent 5: Check your MONGODB_URL environment variable")
+        
+        return story_id
     
     async def update_global_stats(self) -> Dict[str, Any]:
         """Update and return global statistics."""

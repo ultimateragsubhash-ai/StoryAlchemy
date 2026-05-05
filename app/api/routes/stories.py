@@ -21,6 +21,62 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/stories", tags=["stories"])
 
 
+@router.get("/debug/db-status")
+async def debug_database_status():
+    """Debug endpoint to check database connection status."""
+    import os
+    
+    mongodb_url = os.getenv("MONGODB_URL", "")
+    masked_url = "[not set]"
+    if mongodb_url:
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(mongodb_url)
+            if parsed.password:
+                masked_url = f"{parsed.scheme}://{parsed.username}:****@{parsed.hostname}:{parsed.port}{parsed.path}"
+            else:
+                masked_url = f"{parsed.scheme}://{parsed.hostname}:{parsed.port}{parsed.path}" if parsed.hostname else "[invalid-url]"
+        except:
+            masked_url = "[invalid-url-format]"
+    
+    status = {
+        "mongodb_url_set": bool(mongodb_url),
+        "mongodb_url_format": masked_url,
+        "client_exists": database_service.client is not None,
+        "db_exists": database_service.db is not None,
+    }
+    
+    # Try to actually query the database
+    if database_service.db is not None:
+        try:
+            # Ping the server
+            await database_service.client.admin.command('ping')
+            status["ping_success"] = True
+            
+            # Get database info
+            status["db_name"] = database_service.db.name
+            
+            # List collections
+            collections = await database_service.db.list_collection_names()
+            status["collections"] = collections
+            
+            # Count stories
+            story_count = await database_service.db.stories.count_documents({})
+            status["story_count"] = story_count
+            
+            status["status"] = "connected"
+        except Exception as e:
+            status["ping_success"] = False
+            status["error"] = str(e)
+            status["error_type"] = type(e).__name__
+            status["status"] = "error"
+    else:
+        status["status"] = "not_connected"
+        status["error"] = "Database service not initialized"
+    
+    return status
+
+
 def _get_client_ip(request: Request) -> str:
     """Get client IP address."""
     forwarded = request.headers.get("X-Forwarded-For")
@@ -132,6 +188,14 @@ async def get_recent_stories(
 ):
     """Get recent stories for the history page."""
     
+    # Check if database is connected
+    if database_service.db is None:
+        logger.error("Cannot fetch stories: MongoDB not connected")
+        raise HTTPException(
+            status_code=503,
+            detail="Database not connected. Please check your MONGODB_URL configuration.",
+        )
+    
     try:
         stories = await database_service.get_recent_stories(
             limit=limit,
@@ -146,5 +210,5 @@ async def get_recent_stories(
         logger.error(f"Error fetching recent stories: {e}")
         raise HTTPException(
             status_code=500,
-            detail="Failed to fetch stories",
+            detail=f"Failed to fetch stories: {str(e)}",
         )

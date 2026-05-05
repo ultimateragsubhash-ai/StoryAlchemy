@@ -13,6 +13,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# API URL configuration
+# In production (Railway/Streamlit Cloud), set this environment variable
+# to point to your deployed FastAPI backend
+# Example: https://your-backend.up.railway.app/api/v1
 API_URL = os.getenv("FASTAPI_URL", "http://localhost:8000/api/v1")
 
 # Clean light theme with green/teal glow - consistent across all pages

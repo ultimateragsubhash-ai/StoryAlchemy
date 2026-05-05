@@ -40,21 +40,34 @@ app.include_router(api_router, prefix="/api/v1")
 @app.on_event("startup")
 async def startup_event():
     """Initialize services on startup."""
+    logger.info("=" * 50)
     logger.info("Starting StoryAlchemy API...")
+    logger.info("=" * 50)
     
-    # Connect to MongoDB
+    # Connect to MongoDB - CRITICAL for history feature
     try:
         await database_service.connect()
-        logger.info("MongoDB connected")
+        if database_service.client is not None:
+            logger.info("✅ MongoDB connected successfully")
+        else:
+            logger.error("❌ MongoDB client is None after connection attempt")
+            logger.error("   Stories will be generated but NOT saved to history!")
+            logger.error("   Check your MONGODB_URL environment variable")
     except Exception as e:
-        logger.warning(f"MongoDB connection failed: {e}")
+        logger.error(f"❌ MongoDB connection failed: {e}")
+        logger.error("   Stories will be generated but NOT saved to history!")
+        logger.error("   Check your MONGODB_URL environment variable in Railway dashboard")
     
-    # Connect to Redis
+    # Connect to Redis - optional (caching only)
     try:
         cache_service.connect()
-        logger.info("Redis connected")
+        if cache_service.enabled:
+            logger.info("✅ Redis connected successfully")
+        else:
+            logger.warning("⚠️ Redis not connected - caching disabled (stories will still save to MongoDB)")
     except Exception as e:
-        logger.warning(f"Redis connection failed: {e}")
+        logger.warning(f"⚠️ Redis connection failed: {e}")
+        logger.warning("   Caching disabled - stories will still save to MongoDB")
     
     # Load seed patterns into BM25 (in-memory) and Qdrant (vector DB)
     try:

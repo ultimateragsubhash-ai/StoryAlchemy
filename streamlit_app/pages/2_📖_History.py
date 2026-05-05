@@ -4,7 +4,14 @@ import streamlit as st
 import requests
 import os
 
+# API URL configuration
+# In production (Railway/Streamlit Cloud), this should be set as an environment variable
+# Example: https://your-backend.up.railway.app/api/v1
 API_URL = os.getenv("FASTAPI_URL", "http://localhost:8000/api/v1")
+
+# Log the API URL for debugging (only visible in browser console or if explicitly shown)
+if not os.getenv("FASTAPI_URL"):
+    st.warning("⚠️ FASTAPI_URL environment variable not set. Using default: http://localhost:8000/api/v1")
 
 st.set_page_config(
     page_title="StoryAlchemy - History",
@@ -263,6 +270,7 @@ with col2:
 with col3:
     sort_by = st.selectbox("Sort by", ["Newest", "Highest Quality"])
 
+db_error = None
 try:
     params = {"limit": 20}
     if genre_filter != "All":
@@ -271,9 +279,41 @@ try:
         params["tone"] = tone_filter
     
     response = requests.get(f"{API_URL}/stories/recent", params=params, timeout=10)
-    stories = response.json().get("stories", []) if response.status_code == 200 else []
-except:
+    if response.status_code == 200:
+        stories = response.json().get("stories", [])
+    elif response.status_code == 503:
+        db_error = "Database not connected. Please check your MONGODB_URL configuration."
+        stories = []
+    else:
+        db_error = f"Error fetching stories: {response.status_code}"
+        stories = []
+except Exception as e:
+    db_error = f"Connection error: {str(e)}"
     stories = []
+
+# Show database error if any
+if db_error:
+    st.error(f"⚠️ {db_error}")
+    # Show debug info
+    with st.expander("🔧 Debug Database Connection"):
+        try:
+            debug_resp = requests.get(f"{API_URL}/stories/debug/db-status", timeout=5)
+            if debug_resp.status_code == 200:
+                status = debug_resp.json()
+                st.json(status)
+                
+                if not status.get("mongodb_url_set"):
+                    st.error("❌ MONGODB_URL environment variable is not set!")
+                    st.info("Go to Railway Dashboard → Your Project → Variables → Add MONGODB_URL")
+                elif status.get("status") != "connected":
+                    st.error("❌ MongoDB connection failed!")
+                    if "error" in status:
+                        st.code(status["error"])
+                    st.info("Check that your MONGODB_URL is correct and the database is accessible")
+            else:
+                st.error(f"Debug endpoint returned {debug_resp.status_code}")
+        except Exception as debug_e:
+            st.error(f"Could not reach debug endpoint: {debug_e}")
 
 if stories:
     for i, story in enumerate(stories):

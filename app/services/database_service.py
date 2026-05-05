@@ -16,14 +16,68 @@ class DatabaseService:
         self.client: Optional[AsyncIOMotorClient] = None
         self.db = None
     
+    def _extract_db_name(self, url: str) -> str:
+        """Extract database name from MongoDB URL or return default."""
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        
+        # If path exists and is not empty or just '/', use it as db name
+        if parsed.path and parsed.path not in ('', '/', '/?'):
+            # Remove leading slash if present
+            db_name = parsed.path.lstrip('/').split('?')[0]
+            if db_name:
+                return db_name
+        
+        # Default database name
+        return "storyalchemy"
+    
+    def _mask_url(self, url: str) -> str:
+        """Mask sensitive info in MongoDB URL for logging."""
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            if parsed.password:
+                masked = f"{parsed.scheme}://{parsed.username}:****@{parsed.hostname}:{parsed.port}{parsed.path}"
+                return masked
+            return url
+        except:
+            return "[invalid-url-format]"
+    
     async def connect(self):
         """Connect to MongoDB."""
         try:
-            self.client = AsyncIOMotorClient(settings.mongodb_url)
-            self.db = self.client.get_default_database()
-            logger.info("Connected to MongoDB")
+            logger.info(f"Attempting MongoDB connection...")
+            logger.info(f"MongoDB URL (masked): {self._mask_url(settings.mongodb_url)}")
+            
+            # Extract database name from URL (or use default)
+            db_name = self._extract_db_name(settings.mongodb_url)
+            logger.info(f"Using database: {db_name}")
+            
+            self.client = AsyncIOMotorClient(
+                settings.mongodb_url,
+                serverSelectionTimeoutMS=5000,  # 5 second timeout
+                connectTimeoutMS=5000,
+            )
+            
+            # Verify connection by pinging the server
+            await self.client.admin.command('ping')
+            logger.info("✅ MongoDB server ping successful")
+            
+            # Get database - either from URL or use default
+            self.db = self.client[db_name]
+            
+            # Verify access by listing collections
+            collections = await self.db.list_collection_names()
+            
+            logger.info(f"✅ Connected to MongoDB successfully")
+            logger.info(f"   Database: {db_name}")
+            logger.info(f"   Collections: {collections}")
+            
         except Exception as e:
-            logger.error(f"Failed to connect to MongoDB: {e}")
+            logger.error(f"❌ Failed to connect to MongoDB: {e}")
+            logger.error(f"   Error type: {type(e).__name__}")
+            self.client = None
+            self.db = None
             raise
     
     async def disconnect(self):
@@ -34,13 +88,20 @@ class DatabaseService:
     
     async def save_story(self, story_data: Dict[str, Any]) -> str:
         """Save a story to the database."""
+        if self.db is None:
+            logger.error("Cannot save story: MongoDB not connected")
+            raise RuntimeError("Database not connected - story cannot be saved")
+        
         story_data["created_at"] = datetime.utcnow()
         
-        result = await self.db.stories.insert_one(story_data)
-        story_id = str(result.inserted_id)
-        
-        logger.info(f"Saved story: {story_id}")
-        return story_id
+        try:
+            result = await self.db.stories.insert_one(story_data)
+            story_id = str(result.inserted_id)
+            logger.info(f"Saved story: {story_id}")
+            return story_id
+        except Exception as e:
+            logger.error(f"Failed to save story to MongoDB: {e}")
+            raise
     
     async def get_story(self, story_id: str) -> Optional[Dict[str, Any]]:
         """Get a story by ID."""
@@ -65,6 +126,10 @@ class DatabaseService:
     ) -> List[Dict[str, Any]]:
         """Get recent stories with optional filters."""
         
+        if self.db is None:
+            logger.error("Cannot get recent stories: MongoDB not connected")
+            raise RuntimeError("Database not connected")
+        
         query = {}
         
         if not include_errors:
@@ -78,21 +143,31 @@ class DatabaseService:
             query["preferences.tone"] = tone
         
         logger.info(f"Querying stories with filter: {query}")
+        logger.info(f"Database name: {self.db.name}")
         
-        cursor = self.db.stories.find(query).sort("created_at", -1).limit(limit)
-        stories = await cursor.to_list(length=limit)
-        
-        logger.info(f"Found {len(stories)} stories")
-        
-        # Convert ObjectId to string for JSON serialization
-        for story in stories:
-            if "_id" in story:
-                story["_id"] = str(story["_id"])
-            # Also convert any nested ObjectIds
-            if "story_id" in story and not isinstance(story["story_id"], str):
-                story["story_id"] = str(story["story_id"])
-        
-        return stories
+        try:
+            # First, check how many total stories exist
+            total_count = await self.db.stories.count_documents({})
+            logger.info(f"Total stories in collection: {total_count}")
+            
+            cursor = self.db.stories.find(query).sort("created_at", -1).limit(limit)
+            stories = await cursor.to_list(length=limit)
+            
+            logger.info(f"Found {len(stories)} stories matching query")
+            
+            # Convert ObjectId to string for JSON serialization
+            for story in stories:
+                if "_id" in story:
+                    story["_id"] = str(story["_id"])
+                # Also convert any nested ObjectIds
+                if "story_id" in story and not isinstance(story["story_id"], str):
+                    story["story_id"] = str(story["story_id"])
+            
+            return stories
+        except Exception as e:
+            logger.error(f"Error querying stories: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            raise
     
     async def save_feedback(self, feedback_data: Dict[str, Any]) -> str:
         """Save user feedback."""
@@ -162,6 +237,15 @@ class DatabaseService:
     
     async def get_stats(self) -> Dict[str, Any]:
         """Get platform statistics."""
+        
+        if self.db is None:
+            logger.error("Cannot get stats: MongoDB not connected")
+            return {
+                "stories_generated": 0,
+                "average_quality": 0.0,
+                "total_cost_usd": 0.0,
+                "total_loves": 0,
+            }
         
         stories_count = await self.db.stories.count_documents({})
         

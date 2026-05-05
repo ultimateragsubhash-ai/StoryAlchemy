@@ -14,6 +14,19 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 async def get_platform_stats():
     """Get platform-wide statistics."""
     
+    # Check if database is connected
+    if database_service.db is None:
+        logger.warning("Stats requested but MongoDB not connected")
+        return {
+            "stories_generated": 0,
+            "average_quality": 0,
+            "total_cost_usd": 0,
+            "total_loves": 0,
+            "patterns_indexed": 0,
+            "cache_enabled": False,
+            "db_connected": False,
+        }
+    
     try:
         # Get database stats
         db_stats = await database_service.get_stats()
@@ -28,6 +41,7 @@ async def get_platform_stats():
             "total_loves": db_stats.get("total_loves", 0),
             "patterns_indexed": pattern_count,
             "cache_enabled": True,
+            "db_connected": True,
         }
     except Exception as e:
         logger.error(f"Error fetching stats: {e}")
@@ -38,6 +52,7 @@ async def get_platform_stats():
             "total_loves": 0,
             "patterns_indexed": 0,
             "cache_enabled": False,
+            "db_connected": database_service.db is not None,
         }
 
 
