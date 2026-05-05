@@ -277,8 +277,19 @@ def generate_story(idea, preferences):
             json={"idea": idea, "preferences": preferences},
             timeout=60,
         )
-        return response.json() if response.status_code == 200 else None
-    except:
+        if response.status_code == 200:
+            data = response.json()
+            # Ensure we have the required fields
+            if data and "generated_story" in data:
+                return data
+            else:
+                st.error(f"Invalid response from backend: missing 'generated_story'. Keys: {list(data.keys()) if data else 'empty'}")
+                return None
+        else:
+            st.error(f"Backend error: {response.status_code} - {response.text[:200]}")
+            return None
+    except Exception as e:
+        st.error(f"Connection error: {str(e)}")
         return None
 
 
@@ -387,15 +398,18 @@ if idea:
 col1, col2 = st.columns(2)
 
 with col1:
-    if st.button("✨ Generate Story", type="primary", disabled=not idea):
-        if idea:
-            with st.spinner(""):
-                st.markdown('<p class="loading-text">✨ Crafting your story...</p>', unsafe_allow_html=True)
-                result = generate_story(idea, preferences)
-                if result:
-                    st.session_state.story = result
-                    st.session_state.comparison = None
-                    st.rerun()
+    generate_clicked = st.button("✨ Generate Story", type="primary", disabled=not idea)
+
+if generate_clicked and idea:
+    with st.spinner(""):
+        st.markdown('<p class="loading-text">✨ Crafting your story...</p>', unsafe_allow_html=True)
+        result = generate_story(idea, preferences)
+        if result:
+            st.session_state.story = result
+            st.session_state.comparison = None
+            st.rerun()
+        else:
+            st.error("❌ Failed to generate story. Check backend connection.")
 
 with col2:
     if st.button("🎭 Compare Random Tones", type="secondary", disabled=not idea or compare_disabled):
@@ -410,13 +424,19 @@ with col2:
                     st.rerun()
 
 # Display Single Story
-if "story" in st.session_state and st.session_state.story:
-    story = st.session_state.story
-    
+story = st.session_state.get("story")
+if story and isinstance(story, dict) and story.get("generated_story"):
     st.markdown('<div class="story-result">', unsafe_allow_html=True)
     
     title = story.get("story_title", "Your Story")
-    quality = story.get("quality_metrics", {}).get("overall_quality", 0)
+    
+    # Handle quality_metrics - might be a dict or a Pydantic model
+    quality_metrics = story.get("quality_metrics", {})
+    if hasattr(quality_metrics, 'get'):
+        quality = quality_metrics.get("overall_quality", 0)
+    else:
+        # Try as attribute access (Pydantic model)
+        quality = getattr(quality_metrics, 'overall_quality', 0) if quality_metrics else 0
     
     st.markdown(f'<div class="story-title">{title}</div>', unsafe_allow_html=True)
     
@@ -438,8 +458,14 @@ if "story" in st.session_state and st.session_state.story:
     story_text = story.get("generated_story", "")
     st.markdown(f'<div class="story-text">{story_text}</div>', unsafe_allow_html=True)
     
-    # Themes
-    themes = story.get("extracted_themes", {}).get("themes", [])
+    # Themes - handle both dict and Pydantic model
+    extracted_themes = story.get("extracted_themes", {})
+    themes = []
+    if hasattr(extracted_themes, 'get'):
+        themes = extracted_themes.get("themes", [])
+    elif hasattr(extracted_themes, 'themes'):
+        themes = extracted_themes.themes
+    
     if themes:
         st.markdown("<br>", unsafe_allow_html=True)
         for t in themes:

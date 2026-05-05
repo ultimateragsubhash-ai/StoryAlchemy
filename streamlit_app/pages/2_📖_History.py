@@ -322,9 +322,22 @@ if db_error:
 if stories:
     for i, story in enumerate(stories):
         title = story.get("story_title", "Untitled")
-        quality = story.get("quality_metrics", {}).get("overall_quality", 0)
+        
+        # Handle quality_metrics - might be a dict or object
+        quality_metrics = story.get("quality_metrics", {})
+        if hasattr(quality_metrics, 'get'):
+            quality = quality_metrics.get("overall_quality", 0)
+        else:
+            quality = getattr(quality_metrics, 'overall_quality', 0) if quality_metrics else 0
+        
         idea = story.get("idea", "")[:100]
+        
+        # Handle preferences - might be a dict or object
         prefs = story.get("preferences", {})
+        if prefs and not hasattr(prefs, 'get'):
+            # Convert to dict if it's a Pydantic model
+            prefs = dict(prefs) if hasattr(prefs, '__dict__') else {}
+        
         words = story.get("word_count", 0)
         cost = story.get("cost_usd", 0)
         # Show cost with 3 decimal places for small values
@@ -338,8 +351,8 @@ if stories:
             </div>
             <div class="story-meta">💭 {idea}...</div>
             <div>
-                <span class="tag">🎨 {prefs.get('tone', 'neutral')}</span>
-                <span class="tag">🎭 {prefs.get('genre', 'general')}</span>
+                <span class="tag">🎨 {prefs.get('tone', 'neutral') if hasattr(prefs, 'get') else getattr(prefs, 'tone', 'neutral')}</span>
+                <span class="tag">🎭 {prefs.get('genre', 'general') if hasattr(prefs, 'get') else getattr(prefs, 'genre', 'general')}</span>
                 <span class="tag">📏 {words} words</span>
                 <span class="tag">💰 {cost_str}</span>
             </div>

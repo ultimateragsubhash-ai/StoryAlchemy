@@ -77,6 +77,54 @@ async def debug_database_status():
     return status
 
 
+@router.get("/debug/cache-status")
+async def debug_cache_status():
+    """Debug endpoint to check Redis cache status."""
+    from app.services.cache_service import cache_service
+    import os
+    
+    redis_url = os.getenv("REDIS_URL", "")
+    masked_url = "[not set]"
+    if redis_url:
+        try:
+            from urllib.parse import urlparse
+            parsed = urlparse(redis_url)
+            if parsed.password:
+                masked_url = f"{parsed.scheme}://{parsed.username}:****@{parsed.hostname}:{parsed.port}"
+            else:
+                masked_url = f"{parsed.scheme}://{parsed.hostname}:{parsed.port}" if parsed.hostname else "[invalid-url]"
+        except:
+            masked_url = "[invalid-url-format]"
+    
+    status = {
+        "redis_url_set": bool(redis_url),
+        "redis_url_format": masked_url,
+        "cache_enabled": cache_service.enabled,
+        "client_exists": cache_service.client is not None,
+    }
+    
+    # Try to ping Redis
+    if cache_service.client is not None:
+        try:
+            cache_service.client.ping()
+            status["ping_success"] = True
+            status["status"] = "connected"
+            
+            # Get some Redis info
+            info = cache_service.client.info()
+            status["redis_version"] = info.get("redis_version", "unknown")
+            status["used_memory_human"] = info.get("used_memory_human", "unknown")
+        except Exception as e:
+            status["ping_success"] = False
+            status["error"] = str(e)
+            status["status"] = "error"
+    else:
+        status["status"] = "not_connected"
+        status["error"] = "Redis client not initialized"
+    
+    return status
+
+
 def _get_client_ip(request: Request) -> str:
     """Get client IP address."""
     forwarded = request.headers.get("X-Forwarded-For")

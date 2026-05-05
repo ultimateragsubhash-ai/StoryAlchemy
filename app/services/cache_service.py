@@ -41,20 +41,30 @@ class CacheService:
             logger.info("Disconnected from Redis")
     
     def _generate_cache_key(self, idea: str, preferences: Dict[str, Any]) -> str:
-        """Generate cache key from idea and preferences."""
-        # Create embedding-based key for semantic similarity
-        combined = f"{idea}:{json.dumps(preferences, sort_keys=True)}"
-        embedding = embedding_service.embed_single(combined)
+        """Generate cache key from idea and preferences.
         
-        # Hash the embedding
-        embedding_str = ",".join([f"{x:.4f}" for x in embedding])
-        hash_key = hashlib.md5(embedding_str.encode()).hexdigest()
+        Uses simple text hash for exact matching (not semantic similarity).
+        This ensures identical inputs produce identical cache keys.
+        """
+        # Normalize the idea text (lowercase, strip whitespace)
+        normalized_idea = idea.strip().lower()
+        
+        # Create a deterministic string representation of preferences
+        # Sort keys to ensure consistent ordering
+        prefs_str = json.dumps(preferences, sort_keys=True, separators=(',', ':'))
+        
+        # Combine and hash
+        combined = f"{normalized_idea}:{prefs_str}"
+        hash_key = hashlib.md5(combined.encode('utf-8')).hexdigest()
+        
+        logger.debug(f"Cache key for idea '{idea[:30]}...': {hash_key[:16]}")
         
         return f"cache:story:{hash_key}"
     
     def get(self, idea: str, preferences: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Get cached story if available."""
         if not self.enabled or not self.client:
+            logger.debug(f"Cache disabled or client not available. enabled={self.enabled}, client={self.client}")
             return None
         
         try:
@@ -62,8 +72,10 @@ class CacheService:
             cached = self.client.get(key)
             
             if cached:
-                logger.info("Cache hit - returning cached story")
+                logger.info(f"✅ Cache HIT for idea: '{idea[:50]}...' (key: {key[:20]}...)")
                 return json.loads(cached)
+            else:
+                logger.info(f"❌ Cache MISS for idea: '{idea[:50]}...' (key: {key[:20]}...)")
             
             return None
         except Exception as e:
@@ -78,6 +90,7 @@ class CacheService:
     ) -> bool:
         """Cache a story."""
         if not self.enabled or not self.client:
+            logger.debug(f"Cache set skipped - disabled or no client")
             return False
         
         try:
@@ -92,7 +105,7 @@ class CacheService:
                 json.dumps(story_data),
             )
             
-            logger.info(f"Cached story with key: {key[:16]}...")
+            logger.info(f"💾 Cached story with key: {key[:20]}... (TTL: {self.ttl}s)")
             return True
         except Exception as e:
             logger.error(f"Cache set error: {e}")
