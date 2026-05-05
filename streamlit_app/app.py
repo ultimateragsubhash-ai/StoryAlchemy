@@ -294,6 +294,19 @@ def generate_comparison(idea, preferences, tones):
         return None
 
 
+def submit_feedback(story_id, feedback_type):
+    """Submit feedback to the backend."""
+    try:
+        response = requests.post(
+            f"{API_URL}/feedback/submit",
+            json={"story_id": story_id, "feedback_type": feedback_type},
+            timeout=5,
+        )
+        return response.status_code == 200
+    except:
+        return False
+
+
 # Navigation
 st.markdown("""
 <div class="nav-bar">
@@ -407,12 +420,16 @@ if "story" in st.session_state and st.session_state.story:
     
     st.markdown(f'<div class="story-title">{title}</div>', unsafe_allow_html=True)
     
+    # Format cost display
+    cost_usd = story.get('cost_usd', 0)
+    cost_display = f"${cost_usd:.3f}" if cost_usd < 0.01 else f"${cost_usd:.2f}"
+    
     # Stats
     st.markdown(f"""
     <div class="stats-row">
         <div class="stat-pill"><span class="stat-value">⭐ {quality:.2f}</span> Quality</div>
         <div class="stat-pill"><span class="stat-value">{story.get('word_count', 0)}</span> Words</div>
-        <div class="stat-pill"><span class="stat-value">${story.get('cost_usd', 0):.3f}</span> Cost</div>
+        <div class="stat-pill"><span class="stat-value">{cost_display}</span> Cost</div>
         <div class="stat-pill"><span class="stat-value">{story.get('generation_time_ms', 0)//1000}s</span> Time</div>
     </div>
     """, unsafe_allow_html=True)
@@ -434,13 +451,22 @@ if "story" in st.session_state and st.session_state.story:
     
     with col1:
         if st.button("👍 Love it", key=f"love_{story_id}"):
-            st.success("Thanks!")
+            if submit_feedback(story_id, "love"):
+                st.success("Thanks! Your feedback was saved.")
+            else:
+                st.warning("Thanks! (Note: feedback save failed)")
     with col2:
         if st.button("😐 It's OK", key=f"ok_{story_id}"):
-            st.info("Thanks!")
+            if submit_feedback(story_id, "ok"):
+                st.info("Thanks! Your feedback was saved.")
+            else:
+                st.warning("Thanks! (Note: feedback save failed)")
     with col3:
         if st.button("👎 Regenerate", key=f"bad_{story_id}"):
-            st.info("We'll learn from this.")
+            if submit_feedback(story_id, "regenerate"):
+                st.info("We'll learn from this.")
+            else:
+                st.warning("Thanks! (Note: feedback save failed)")
     
     st.download_button("📥 Download Story", story_text, f"story_{story_id[:8] if story_id else 'unknown'}.txt")
     

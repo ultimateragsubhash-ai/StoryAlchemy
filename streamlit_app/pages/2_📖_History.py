@@ -241,6 +241,10 @@ st.markdown('<h1 class="page-title">📖 Story History</h1>', unsafe_allow_html=
 st.markdown('<p class="page-subtitle">Browse your previously generated narratives</p>', unsafe_allow_html=True)
 
 stats = get_stats()
+# Format cost with 3 decimal places if less than 0.01, otherwise 2 decimal places
+total_cost = stats.get('total_cost_usd', 0)
+cost_display = f"${total_cost:.3f}" if total_cost < 0.01 else f"${total_cost:.2f}"
+
 st.markdown(f"""
 <div class="stats-bar">
     <div class="stat-box">
@@ -252,7 +256,7 @@ st.markdown(f"""
         <div class="stat-label">Avg Quality</div>
     </div>
     <div class="stat-box">
-        <div class="stat-num">${stats.get('total_cost_usd', 0):.2f}</div>
+        <div class="stat-num">{cost_display}</div>
         <div class="stat-label">Total Cost</div>
     </div>
     <div class="stat-box">
@@ -322,6 +326,9 @@ if stories:
         idea = story.get("idea", "")[:100]
         prefs = story.get("preferences", {})
         words = story.get("word_count", 0)
+        cost = story.get("cost_usd", 0)
+        # Show cost with 3 decimal places for small values
+        cost_str = f"${cost:.3f}" if cost < 0.01 else f"${cost:.2f}"
         
         st.markdown(f"""
         <div class="story-card">
@@ -334,6 +341,7 @@ if stories:
                 <span class="tag">🎨 {prefs.get('tone', 'neutral')}</span>
                 <span class="tag">🎭 {prefs.get('genre', 'general')}</span>
                 <span class="tag">📏 {words} words</span>
+                <span class="tag">💰 {cost_str}</span>
             </div>
         </div>
         """, unsafe_allow_html=True)
